@@ -1261,17 +1261,6 @@ function trGo(){
 }
 
 // ── Speech ──
-var _spk=null;
-function speakText(text,lang,btn){
-  if(!window.speechSynthesis){alert('瀏覽器不支援語音播放');return;}
-  window.speechSynthesis.cancel();
-  if(_spk&&_spk===btn){_spk=null;return;}
-  var u=new SpeechSynthesisUtterance(text);
-  u.lang=lang;u.rate=0.9;
-  if(btn){btn.classList.add('sp');_spk=btn;}
-  u.onend=function(){if(btn)btn.classList.remove('sp');_spk=null;};
-  window.speechSynthesis.speak(u);
-}
 /* ── 天氣 ── */
 (function(){
   var days=['日','一','二','三','四','五','六'];
@@ -1355,29 +1344,7 @@ function loadRates(){
   loadRates();
 })();
 
-/* ── 語音 ── */
-var _spk=null,_voices=[];
-function _loadVoices(){_voices=window.speechSynthesis.getVoices();}
-if(window.speechSynthesis){_loadVoices();window.speechSynthesis.onvoiceschanged=function(){_loadVoices();};}
-function speakText(text,lang,btn){
-  if(!window.speechSynthesis)return;
-  window.speechSynthesis.cancel();
-  if(_spk&&_spk===btn){_spk=null;return;}
-  var v=_voices.length>0?_voices:window.speechSynthesis.getVoices();
-  var u=new SpeechSynthesisUtterance(text);
-  u.lang=lang;u.rate=0.9;u.pitch=1.0;u.volume=1.0;
-  if(v.length>0){
-    var p=null;
-    if(lang==='en-US'){p=v.find(function(x){return x.name==='Alex';})||v.find(function(x){return x.name==='Google UK English Male';})||v.find(function(x){return x.lang==='en-US'&&x.localService;});}
-    else if(lang==='ja-JP'){p=v.find(function(x){return x.lang==='ja-JP'&&x.localService;})||v.find(function(x){return x.lang==='ja-JP';});}
-    else if(lang==='ko-KR'){p=v.find(function(x){return x.lang==='ko-KR';});}
-    if(p)u.voice=p;
-  }
-  if(btn){btn.classList.add('sp');_spk=btn;}
-  u.onend=function(){if(btn)btn.classList.remove('sp');_spk=null;};
-  u.onerror=function(){if(btn)btn.classList.remove('sp');_spk=null;};
-  window.speechSynthesis.speak(u);
-}
+
 /* ── 天氣 ── */
 (function(){
   var days=['日','一','二','三','四','五','六'];
