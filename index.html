@@ -1313,40 +1313,20 @@ function trGo(){
   res.style.display='block';
   res.innerHTML='<span style="color:#aaa">翻譯中…</span>';
   var label={zh:'中文',en:'English',ja:'日本語',ko:'한국어'}[__trLang];
-  var slMap={zh:'zh-TW',en:'en-US',ja:'ja',ko:'ko'};
   var tlMap={zh:'zh-TW',en:'en',ja:'ja',ko:'ko'};
   var tl=tlMap[__trLang]||'ja';
-  // 偵測輸入語言決定 sl
-  var sl;
-  if(/[\u3040-\u309F\u30A0-\u30FF]/.test(text)) sl='ja';        // 平假名/片假名 → 日文
-  else if(/[\uAC00-\uD7AF]/.test(text)) sl='ko';                // 韓文
-  else if(/[\u4E00-\u9FFF]/.test(text)) sl='zh-TW';             // 中文漢字
-  else sl='en';                                                   // 預設英文
-  var url='https://api.mymemory.translated.net/get?q='+encodeURIComponent(text)+'&langpair='+sl+'|'+tl+'&de=travel@example.com';
+  // 用 Google Translate（支援 auto 偵測來源語言）
+  var url='https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl='+tl+'&dt=t&q='+encodeURIComponent(text);
   fetch(url)
     .then(function(r){return r.json();})
     .then(function(d){
-      if(d.responseStatus===200&&d.responseData&&d.responseData.translatedText){
-        var result=d.responseData.translatedText;
-        res.innerHTML='<div style="font-size:11px;color:#aaa;margin-bottom:6px">→ '+label+'</div><div style="font-size:16px;font-weight:500" id="tr-result-txt">'+result+'</div>';
-        document.getElementById('tr-speak-wrap').style.display='block';
-      } else {
-        // fallback: 不帶 email，但用偵測到的 sl
-        return fetch('https://api.mymemory.translated.net/get?q='+encodeURIComponent(text)+'&langpair='+sl+'|'+tl)
-          .then(function(r2){return r2.json();})
-          .then(function(d2){
-            if(d2.responseStatus===200&&d2.responseData&&d2.responseData.translatedText){
-              var result=d2.responseData.translatedText;
-              res.innerHTML='<div style="font-size:11px;color:#aaa;margin-bottom:6px">→ '+label+'</div><div style="font-size:16px;font-weight:500" id="tr-result-txt">'+result+'</div>';
-              document.getElementById('tr-speak-wrap').style.display='block';
-            } else {
-              res.innerHTML='<span style="color:#E24B4A">翻譯失敗，請稍後再試</span>';
-            }
-          });
-      }
+      var result=d[0].map(function(x){return x[0]||'';}).join('');
+      if(!result) throw new Error('empty');
+      res.innerHTML='<div style="font-size:11px;color:#aaa;margin-bottom:6px">→ '+label+'</div><div style="font-size:16px;font-weight:500" id="tr-result-txt">'+result+'</div>';
+      document.getElementById('tr-speak-wrap').style.display='block';
     })
-    .catch(function(e){
-      res.innerHTML='<span style="color:#E24B4A">網路錯誤，請確認連線</span>';
+    .catch(function(){
+      res.innerHTML='<span style="color:#E24B4A">翻譯失敗，請確認網路連線</span>';
     });
 }
 
