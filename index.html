@@ -991,18 +991,10 @@ body{font-family:'Noto Sans TC',sans-serif;background:#f5f5f0;color:#1a1a1a;}
 <!-- ══ 翻譯 ══ -->
 <div id="tr" class="sec">
   <div style="margin-bottom:14px">
-    <input id="tr-inp" class="bk-inp" placeholder="輸入中文、英文、日文或韓文…" style="width:100%;margin-bottom:8px;font-size:14px;padding:11px 14px" onkeydown="if(event.key==='Enter')trGo()"/>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-      <button class="bk-fb on" id="tr-zh" onclick="__trLang='zh';setTrBtn(this)">→ 中文</button>
-      <button class="bk-fb" id="tr-en" onclick="__trLang='en';setTrBtn(this)">→ 英文</button>
-      <button class="bk-fb" id="tr-ja" onclick="__trLang='ja';setTrBtn(this)">→ 日文</button>
-      <button class="bk-fb" id="tr-ko" onclick="__trLang='ko';setTrBtn(this)">→ 韓文</button>
-    </div>
-    <button class="bk-btn" onclick="trGo()">翻譯 ↗</button>
-    <div id="tr-res" style="display:none;background:#f9f8f6;border-radius:8px;padding:14px;margin-top:8px;font-size:15px;line-height:1.7"></div>
-    <div id="tr-speak-wrap" style="display:none;text-align:right;margin-top:4px">
-      <button class="tr-btn" id="tr-speak" onclick="spkResult()">🔊 播放</button>
-    </div>
+    <iframe src="https://translate.google.com/?sl=auto&tl=zh-TW&op=translate" 
+      style="width:100%;height:400px;border:none;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.08);"
+      allow="clipboard-read; clipboard-write">
+    </iframe>
   </div>
   <div class="card" style="margin-bottom:10px">
     <div class="ch" onclick="tog(this)"><div class="dot os" style="font-size:10px">常用<br>短句</div><div class="ct"><div class="cl">旅遊必備短句</div><div class="cs">中・英・日・韓</div></div><span class="arr">▶</span></div>
@@ -1407,40 +1399,55 @@ var DICT=[
   {zh:'抹茶',en:'Matcha',ja:'抹茶',ko:'말차'},
 ];
 
+function saveKey(){
+  var k=document.getElementById('tr-key-inp').value.trim();
+  if(!k){alert('請輸入 API Key');return;}
+  localStorage.setItem('_trkey',k);
+  document.getElementById('tr-key-status').textContent='✅ 已儲存！下次開啟自動載入';
+  document.getElementById('tr-key-inp').value='';
+}
+// 載入時自動填入已儲存的 key 狀態
+(function(){
+  var k=localStorage.getItem('_trkey');
+  var s=document.getElementById('tr-key-status');
+  if(k&&s) s.textContent='✅ 已有儲存的 Key（'+k.substring(0,12)+'…）';
+})();
+
 function trGo(){
   var text=document.getElementById('tr-inp').value.trim();
   if(!text){alert('請輸入要翻譯的文字');return;}
+  var key=localStorage.getItem('_trkey');
+  if(!key){alert('請先在上方輸入並儲存 API Key');return;}
   var res=document.getElementById('tr-res');
   res.style.display='block';
   res.innerHTML='<span style="color:#aaa">翻譯中…</span>';
   var label={zh:'中文',en:'English',ja:'日本語',ko:'한국어'}[__trLang];
-  var tl={zh:'zh-TW',en:'en',ja:'ja',ko:'ko'}[__trLang]||'zh-TW';
-  // JSONP 繞過 CORS
-  var cbName='_tr'+Date.now();
-  window[cbName]=function(d){
-    delete window[cbName];
-    var s=document.getElementById('_trscript');
-    if(s)s.remove();
-    try{
-      var result=d[0].map(function(x){return x[0]||'';}).join('');
-      if(!result)throw new Error('empty');
-      res.innerHTML='<div style="font-size:11px;color:#aaa;margin-bottom:6px">→ '+label+'</div>'
-        +'<div style="font-size:16px;font-weight:500" id="tr-result-txt">'+result+'</div>';
-      document.getElementById('tr-speak-wrap').style.display='block';
-    }catch(e){
-      res.innerHTML='<span style="color:#E24B4A">翻譯失敗，請確認網路連線</span>';
-    }
-  };
-  var old=document.getElementById('_trscript');
-  if(old)old.remove();
-  var s=document.createElement('script');
-  s.id='_trscript';
-  s.onerror=function(){
-    res.innerHTML='<span style="color:#E24B4A">翻譯失敗，請確認網路連線</span>';
-    delete window[cbName];
-  };
-  s.src='https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl='+tl+'&dt=t&callback='+cbName+'&q='+encodeURIComponent(text);
-  document.head.appendChild(s);
+  var langName={zh:'繁體中文',en:'英文',ja:'日文',ko:'韓文'}[__trLang];
+  fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'x-api-key':key,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true'
+    },
+    body:JSON.stringify({
+      model:'claude-haiku-4-5-20251001',
+      max_tokens:500,
+      messages:[{role:'user',content:'請將以下文字翻譯成'+langName+'，只輸出翻譯結果，不要加任何說明：\n\n'+text}]
+    })
+  })
+  .then(function(r){return r.json();})
+  .then(function(d){
+    var result=d.content&&d.content[0]&&d.content[0].text;
+    if(!result)throw new Error('empty');
+    res.innerHTML='<div style="font-size:11px;color:#aaa;margin-bottom:6px">→ '+label+'</div>'
+      +'<div style="font-size:16px;font-weight:500" id="tr-result-txt">'+result+'</div>';
+    document.getElementById('tr-speak-wrap').style.display='block';
+  })
+  .catch(function(){
+    res.innerHTML='<span style="color:#E24B4A">翻譯失敗，請確認 API Key 或網路連線</span>';
+  });
 }
 
 // ── Speech ──
